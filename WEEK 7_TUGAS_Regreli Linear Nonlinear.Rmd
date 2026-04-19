@@ -1,0 +1,366 @@
+---
+title: "Regresi_Linear_Nonlinear"
+author: "5052241006_Nabila Chesaria Octavia Putri"
+date: "2026-04-19"
+output: html_document
+---
+Model Regresi
+
+
+Penaksir Parameter
+```{r setup, include=FALSE}
+# Data input
+x <- c(5, 2, 12, 9, 15, 6, 25, 16)
+y <- c(64, 87, 50, 71, 44, 56, 42, 60)
+
+# Jumlah observasi
+n <- length(y)
+
+# Hitung rata-rata manual (tanpa mean())
+xbar <- sum(x) / n
+ybar <- sum(y) / n
+
+# Inisialisasi akumulator
+suma <- 0  # untuk numerator b1
+sumb <- 0  # untuk denominator b1
+
+# Hitung sum(xi - xbar)(yi - ybar) dan sum(xi - xbar)^2
+for (i in 1:n) {
+  suma <- suma + (x[i] - xbar) * (y[i] - ybar)  # kovarian X dan Y
+  sumb <- sumb + (x[i] - xbar)^2                 # variansi X
+}
+
+# Estimasi koefisien
+b1 <- suma / sumb        # slope
+b0 <- ybar - b1 * xbar  # intercept
+
+# Tampilkan hasil
+cat("b0 (intercept):", b0, "\n")
+cat("b1 (slope)    :", b1, "\n")
+cat("Model: Y_hat =", b0, "+", b1, "* X\n")
+```
+
+Prediksi dan Residual
+```{r setup, include=FALSE}
+# Inisialisasi vektor
+ytopi <- numeric(n)  # nilai prediksi
+resid  <- numeric(n) # residual
+
+for (i in 1:n) {
+  ytopi[i] <- b0 + b1 * x[i]        # prediksi Y ke-i
+  resid[i]  <- y[i] - ytopi[i]      # residual ke-i
+}
+
+# Tampilkan tabel prediksi
+hasil <- data.frame(
+  X       = x,
+  Y_aktual = y,
+  Y_prediksi = round(ytopi, 4),
+  Residual   = round(resid, 4)
+)
+print(hasil)
+```
+
+Dekomposisi Sum of Squares
+```{r setup, include=FALSE}
+ssr <- 0  # sum of squares regression
+sse <- 0  # sum of squares error
+
+for (i in 1:n) {
+  ssr <- ssr + (ytopi[i] - ybar)^2  # deviasi prediksi dari rata-rata Y
+  sse <- sse + (y[i] - ytopi[i])^2  # deviasi aktual dari prediksi
+}
+
+sst <- ssr + sse  # total sum of squares
+
+# Degrees of freedom
+dfr <- 1      # regresi: jumlah prediktor
+dfe <- n - 2  # error: n dikurangi jumlah parameter (b0 dan b1)
+dft <- n - 1  # total
+
+# Mean squares
+msr <- ssr / dfr  # mean square regression
+mse <- sse / dfe  # mean square error
+
+cat("SSR:", ssr, "\nSSE:", sse, "\nSST:", sst, "\n")
+cat("MSR:", msr, "\nMSE:", mse, "\n")
+```
+
+Koefisien Determinasi R2
+```{r setup, include=FALSE}
+rsq  <- ssr / sst                             # R-squared
+radj <- rsq - (dfr * (1 - rsq)) / (n - dfr - 1)  # R-squared adjusted
+
+cat("R-squared         :", round(rsq, 4), "\n")
+cat("R-squared Adjusted:", round(radj, 4), "\n")
+```
+
+Uji Serentak
+```{r setup, include=FALSE}
+alpha <- 0.05  # tingkat signifikansi
+
+# Hitung F hitung
+fhit <- msr / mse
+
+# F tabel dari distribusi F
+ftab <- qf(1 - alpha, dfr, dfe)
+
+# Hitung p-value
+pvalf <- round(1 - pf(fhit, dfr, dfe), 4)
+
+# Keputusan
+if (fhit > ftab) {
+  tandaf <- ">"
+  kep    <- "Tolak H0"
+} else {
+  tandaf <- "<"
+  kep    <- "Gagal Tolak H0"
+}
+
+# Tabel ANOVA
+source_col <- c("Regression", "Residual", "Total")
+df_col     <- c(dfr, dfe, dft)
+ss_col     <- c(ssr, sse, sst)
+ms_col     <- c(msr, mse, NA)
+fh_col     <- c(fhit, NA, NA)
+ft_col     <- c(ftab, NA, NA)
+pv_col     <- c(pvalf, NA, NA)
+
+tabel_anova <- data.frame(
+  Source    = source_col,
+  df        = df_col,
+  SS        = round(ss_col, 4),
+  MS        = round(ms_col, 4),
+  F_hitung  = round(fh_col, 4),
+  F_tabel   = round(ft_col, 4),
+  p_value   = pv_col
+)
+
+print(tabel_anova)
+cat("\nKesimpulan: F hitung", tandaf, "F tabel →", kep, "\n")
+```
+
+Uji Parsial
+```{r setup, include=FALSE}
+# Hitung sum xi^2 dan sum (xi - xbar)^2 secara manual
+sumb0 <- 0  # untuk s(b0): sum xi^2
+sumb1 <- 0  # untuk s(b1): sum (xi - xbar)^2
+
+for (i in 1:n) {
+  sumb0 <- sumb0 + x[i]^2               # jumlah kuadrat xi
+  sumb1 <- sumb1 + (x[i] - xbar)^2     # jumlah kuadrat deviasi xi
+}
+
+# Standard error koefisien
+seb0 <- sqrt(mse * sumb0 / (n * sumb1))  # standard error b0
+seb1 <- sqrt(mse / sumb1)                # standard error b1
+
+# t hitung
+thit0 <- b0 / seb0  # t hitung untuk intercept
+thit1 <- b1 / seb1  # t hitung untuk koefisien
+
+# t tabel (dua arah)
+ttab <- qt(1 - alpha / 2, dfe)
+
+# Hitung p-value (dua arah)
+pval0 <- if (thit0 < 0) 2 * pt(thit0, dfe) else 2 * (1 - pt(thit0, dfe))
+pval1 <- if (thit1 < 0) 2 * pt(thit1, dfe) else 2 * (1 - pt(thit1, dfe))
+
+# Keputusan
+kept0 <- if (pval0 <= alpha) "Tolak H0" else "Gagal Tolak H0"
+kept1 <- if (pval1 <= alpha) "Tolak H0" else "Gagal Tolak H0"
+
+# Tabel parsial
+tabel_parsial <- data.frame(
+  Variabel      = c("Intercept (b0)", "X (b1)"),
+  Coefficient   = round(c(b0, b1), 4),
+  Std_Error     = round(c(seb0, seb1), 4),
+  T_hitung      = round(c(thit0, thit1), 4),
+  T_tabel       = round(c(ttab, ttab), 4),
+  p_value       = round(c(pval0, pval1), 4),
+  Keputusan     = c(kept0, kept1)
+)
+
+print(tabel_parsial)
+```
+
+Confodence Interfal Parameter
+```{r setup, include=FALSE}
+# Margin CI
+ci0 <- ttab * seb0  # margin error b0
+ci1 <- ttab * seb1  # margin error b1
+
+cat("Confidence Interval (95%) untuk setiap parameter:\n")
+cat("β0: (", round(b0 - ci0, 4), ",", round(b0 + ci0, 4), ")\n")
+cat("β1: (", round(b1 - ci1, 4), ",", round(b1 + ci1, 4), ")\n")
+```
+
+Regresi Linear Berganda
+```{r setup, include=FALSE}
+# Contoh data: Experience (X1), Score (X2), Salary (Y)
+# Ganti dengan dataset sebenarnya
+
+# Import data (sesuaikan path)
+# library(readxl)
+# dataset <- read_excel("week2.xlsx")
+# x1 <- dataset$Experience
+# x2 <- dataset$Score
+# y  <- dataset$Salary
+
+# Simulasi data contoh
+x1 <- c(1, 3, 5, 7, 9, 2, 4, 6, 8, 10)
+x2 <- c(80, 75, 70, 65, 60, 85, 78, 72, 68, 55)
+y  <- c(30, 35, 40, 45, 50, 32, 38, 43, 48, 55)
+
+# Bentuk matriks Y dan X
+Y <- as.matrix(y)
+X <- as.matrix(cbind(1, x1, x2))  # kolom 1 untuk intercept
+
+# Dimensi
+n <- dim(X)[1]  # jumlah observasi
+k <- dim(X)[2]  # jumlah kolom (termasuk intercept)
+
+# Estimasi parameter: b = (X'X)^-1 * X'Y
+xtx <- solve(t(X) %*% X)   # invers dari (X'X)
+xty <- t(X) %*% Y           # X'Y
+b   <- xtx %*% xty           # vektor koefisien
+
+cat("Estimasi Parameter:\n")
+rownames(b) <- c("b0 (Intercept)", "b1 (X1)", "b2 (X2)")
+print(round(b, 4))
+
+# Nilai prediksi dan residual
+ytopi <- X %*% b        # Y_hat = X * b
+etopi <- Y - ytopi      # residual
+
+# Hitung SS
+ybar <- sum(y) / n     # rata-rata Y manual
+
+ssr <- as.numeric(t(b) %*% xty - n * ybar^2)  # SSR = b'(X'Y) - n*ybar^2
+sse <- as.numeric(t(Y) %*% Y - t(b) %*% xty)  # SSE = Y'Y - b'(X'Y)
+sst <- ssr + sse
+
+# Degrees of freedom
+dfr <- k - 1      # jumlah prediktor
+dfe <- n - k      # n dikurangi jumlah parameter
+dft <- dfr + dfe
+
+# Mean squares
+msr <- ssr / dfr
+mse <- sse / dfe
+
+# Uji Serentak
+alpha <- 0.05
+fhit <- msr / mse
+ftab <- qf(1 - alpha, dfr, dfe)
+pvalf <- round(2 * (1 - pf(fhit, dfr, dfe)), 4)
+
+kepf <- if (fhit > ftab) "Tolak H0" else "Gagal Tolak H0"
+
+cat("\n=== Tabel ANOVA ===\n")
+tbl <- data.frame(
+  Source   = c("Regression", "Residual", "Total"),
+  df       = c(dfr, dfe, dft),
+  SS       = round(c(ssr, sse, sst), 4),
+  MS       = round(c(msr, mse, NA), 4),
+  F_hitung = round(c(fhit, NA, NA), 4),
+  F_tabel  = round(c(ftab, NA, NA), 4),
+  p_value  = c(pvalf, NA, NA)
+)
+print(tbl)
+cat("Keputusan:", kepf, "\n")
+
+# Uji Parsial
+sb    <- sqrt(mse) * sqrt(diag(xtx))  # standard error tiap koefisien
+thit  <- as.vector(b) / sb             # t hitung tiap koefisien
+ttab2 <- qt(1 - alpha / 2, dfe)
+
+pval_t <- numeric(k)
+kept   <- character(k)
+cia    <- numeric(k)
+cib    <- numeric(k)
+
+for (i in 1:k) {
+  pval_t[i] <- if (thit[i] < 0) 2 * pt(thit[i], dfe) else 2 * (1 - pt(thit[i], dfe))
+  kept[i]   <- if (pval_t[i] <= alpha) "Tolak H0" else "Gagal Tolak H0"
+  cia[i]    <- as.vector(b)[i] + ttab2 * sb[i]  # batas atas CI
+  cib[i]    <- as.vector(b)[i] - ttab2 * sb[i]  # batas bawah CI
+}
+
+cat("\n=== Tabel Uji Parsial ===\n")
+tbl_parsial <- data.frame(
+  Variabel    = c("Intercept", "X1", "X2"),
+  Coefficient = round(as.vector(b), 4),
+  Std_Error   = round(sb, 4),
+  T_hitung    = round(thit, 4),
+  T_tabel     = round(rep(ttab2, k), 4),
+  p_value     = round(pval_t, 4),
+  Keputusan   = kept
+)
+print(tbl_parsial)
+
+# R-squared
+rsq  <- ssr / sst
+radj <- rsq - (dfr * (1 - rsq)) / (n - dfr - 1)
+cat("\nR-squared         :", round(rsq, 4), "\n")
+cat("R-squared Adjusted:", round(radj, 4), "\n")
+```
+
+
+```{r setup, include=FALSE}
+
+```
+
+
+```{r setup, include=FALSE}
+
+```
+
+
+```{r setup, include=FALSE}
+
+```
+
+
+```{r setup, include=FALSE}
+
+```
+
+
+```{r setup, include=FALSE}
+
+```
+
+
+```{r setup, include=FALSE}
+
+```
+
+
+```{r setup, include=FALSE}
+
+```
+
+```{r setup, include=FALSE}
+
+```
+
+
+```{r setup, include=FALSE}
+
+```
+
+
+```{r setup, include=FALSE}
+
+```
+
+
+```{r setup, include=FALSE}
+
+```
+
+
+```{r setup, include=FALSE}
+
+```
