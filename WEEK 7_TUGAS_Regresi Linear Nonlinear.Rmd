@@ -1,0 +1,619 @@
+---
+title: "Regresi_Linear_Nonlinear"
+author: "5052241006_Nabila Chesaria Octavia Putri"
+date: "2026-04-19"
+output: html_document
+---
+Model Regresi
+
+
+Penaksir Parameter
+```{r setup, include=FALSE}
+# Data input
+x <- c(5, 2, 12, 9, 15, 6, 25, 16)
+y <- c(64, 87, 50, 71, 44, 56, 42, 60)
+
+# Jumlah observasi
+n <- length(y)
+
+# Hitung rata-rata manual (tanpa mean())
+xbar <- sum(x) / n
+ybar <- sum(y) / n
+
+# Inisialisasi akumulator
+suma <- 0  # untuk numerator b1
+sumb <- 0  # untuk denominator b1
+
+# Hitung sum(xi - xbar)(yi - ybar) dan sum(xi - xbar)^2
+for (i in 1:n) {
+  suma <- suma + (x[i] - xbar) * (y[i] - ybar)  # kovarian X dan Y
+  sumb <- sumb + (x[i] - xbar)^2                 # variansi X
+}
+
+# Estimasi koefisien
+b1 <- suma / sumb        # slope
+b0 <- ybar - b1 * xbar  # intercept
+
+# Tampilkan hasil
+cat("b0 (intercept):", b0, "\n")
+cat("b1 (slope)    :", b1, "\n")
+cat("Model: Y_hat =", b0, "+", b1, "* X\n")
+```
+
+Prediksi dan Residual
+```{r setup, include=FALSE}
+# Inisialisasi vektor
+ytopi <- numeric(n)  # nilai prediksi
+resid  <- numeric(n) # residual
+
+for (i in 1:n) {
+  ytopi[i] <- b0 + b1 * x[i]        # prediksi Y ke-i
+  resid[i]  <- y[i] - ytopi[i]      # residual ke-i
+}
+
+# Tampilkan tabel prediksi
+hasil <- data.frame(
+  X       = x,
+  Y_aktual = y,
+  Y_prediksi = round(ytopi, 4),
+  Residual   = round(resid, 4)
+)
+print(hasil)
+```
+
+Dekomposisi Sum of Squares
+```{r setup, include=FALSE}
+ssr <- 0  # sum of squares regression
+sse <- 0  # sum of squares error
+
+for (i in 1:n) {
+  ssr <- ssr + (ytopi[i] - ybar)^2  # deviasi prediksi dari rata-rata Y
+  sse <- sse + (y[i] - ytopi[i])^2  # deviasi aktual dari prediksi
+}
+
+sst <- ssr + sse  # total sum of squares
+
+# Degrees of freedom
+dfr <- 1      # regresi: jumlah prediktor
+dfe <- n - 2  # error: n dikurangi jumlah parameter (b0 dan b1)
+dft <- n - 1  # total
+
+# Mean squares
+msr <- ssr / dfr  # mean square regression
+mse <- sse / dfe  # mean square error
+
+cat("SSR:", ssr, "\nSSE:", sse, "\nSST:", sst, "\n")
+cat("MSR:", msr, "\nMSE:", mse, "\n")
+```
+
+Koefisien Determinasi R2
+```{r setup, include=FALSE}
+rsq  <- ssr / sst                             # R-squared
+radj <- rsq - (dfr * (1 - rsq)) / (n - dfr - 1)  # R-squared adjusted
+
+cat("R-squared         :", round(rsq, 4), "\n")
+cat("R-squared Adjusted:", round(radj, 4), "\n")
+```
+
+Uji Serentak
+```{r setup, include=FALSE}
+alpha <- 0.05  # tingkat signifikansi
+
+# Hitung F hitung
+fhit <- msr / mse
+
+# F tabel dari distribusi F
+ftab <- qf(1 - alpha, dfr, dfe)
+
+# Hitung p-value
+pvalf <- round(1 - pf(fhit, dfr, dfe), 4)
+
+# Keputusan
+if (fhit > ftab) {
+  tandaf <- ">"
+  kep    <- "Tolak H0"
+} else {
+  tandaf <- "<"
+  kep    <- "Gagal Tolak H0"
+}
+
+# Tabel ANOVA
+source_col <- c("Regression", "Residual", "Total")
+df_col     <- c(dfr, dfe, dft)
+ss_col     <- c(ssr, sse, sst)
+ms_col     <- c(msr, mse, NA)
+fh_col     <- c(fhit, NA, NA)
+ft_col     <- c(ftab, NA, NA)
+pv_col     <- c(pvalf, NA, NA)
+
+tabel_anova <- data.frame(
+  Source    = source_col,
+  df        = df_col,
+  SS        = round(ss_col, 4),
+  MS        = round(ms_col, 4),
+  F_hitung  = round(fh_col, 4),
+  F_tabel   = round(ft_col, 4),
+  p_value   = pv_col
+)
+
+print(tabel_anova)
+cat("\nKesimpulan: F hitung", tandaf, "F tabel →", kep, "\n")
+```
+
+Uji Parsial
+```{r setup, include=FALSE}
+# Hitung sum xi^2 dan sum (xi - xbar)^2 secara manual
+sumb0 <- 0  # untuk s(b0): sum xi^2
+sumb1 <- 0  # untuk s(b1): sum (xi - xbar)^2
+
+for (i in 1:n) {
+  sumb0 <- sumb0 + x[i]^2               # jumlah kuadrat xi
+  sumb1 <- sumb1 + (x[i] - xbar)^2     # jumlah kuadrat deviasi xi
+}
+
+# Standard error koefisien
+seb0 <- sqrt(mse * sumb0 / (n * sumb1))  # standard error b0
+seb1 <- sqrt(mse / sumb1)                # standard error b1
+
+# t hitung
+thit0 <- b0 / seb0  # t hitung untuk intercept
+thit1 <- b1 / seb1  # t hitung untuk koefisien
+
+# t tabel (dua arah)
+ttab <- qt(1 - alpha / 2, dfe)
+
+# Hitung p-value (dua arah)
+pval0 <- if (thit0 < 0) 2 * pt(thit0, dfe) else 2 * (1 - pt(thit0, dfe))
+pval1 <- if (thit1 < 0) 2 * pt(thit1, dfe) else 2 * (1 - pt(thit1, dfe))
+
+# Keputusan
+kept0 <- if (pval0 <= alpha) "Tolak H0" else "Gagal Tolak H0"
+kept1 <- if (pval1 <= alpha) "Tolak H0" else "Gagal Tolak H0"
+
+# Tabel parsial
+tabel_parsial <- data.frame(
+  Variabel      = c("Intercept (b0)", "X (b1)"),
+  Coefficient   = round(c(b0, b1), 4),
+  Std_Error     = round(c(seb0, seb1), 4),
+  T_hitung      = round(c(thit0, thit1), 4),
+  T_tabel       = round(c(ttab, ttab), 4),
+  p_value       = round(c(pval0, pval1), 4),
+  Keputusan     = c(kept0, kept1)
+)
+
+print(tabel_parsial)
+```
+
+Confodence Interfal Parameter
+```{r setup, include=FALSE}
+# Margin CI
+ci0 <- ttab * seb0  # margin error b0
+ci1 <- ttab * seb1  # margin error b1
+
+cat("Confidence Interval (95%) untuk setiap parameter:\n")
+cat("β0: (", round(b0 - ci0, 4), ",", round(b0 + ci0, 4), ")\n")
+cat("β1: (", round(b1 - ci1, 4), ",", round(b1 + ci1, 4), ")\n")
+```
+
+Regresi Linear Sederhana
+```{r setup, include=FALSE}
+rls <- function(y, x) {
+
+  # Persiapan
+  n    <- length(y)
+  xbar <- sum(x) / n  # rata-rata x
+  ybar <- sum(y) / n  # rata-rata y
+
+  # Penaksir parameter
+  suma <- 0
+  sumb <- 0
+  for (i in 1:n) {
+    suma <- suma + (x[i] - xbar) * (y[i] - ybar)  # numerator b1
+    sumb <- sumb + (x[i] - xbar)^2                 # denominator b1
+  }
+
+  b1 <- suma / sumb        # slope
+  b0 <- ybar - b1 * xbar  # intercept
+
+  # Prediksi dan sum of squares
+  ytopi <- numeric(n)
+  ssr   <- 0
+  sse   <- 0
+  for (i in 1:n) {
+    ytopi[i] <- b0 + b1 * x[i]            # nilai prediksi
+    ssr      <- ssr + (ytopi[i] - ybar)^2 # sum squares regression
+    sse      <- sse + (y[i] - ytopi[i])^2 # sum squares error
+  }
+
+  sst <- ssr + sse  # sum squares total
+
+  # Degrees of freedom dan mean squares
+  dfr <- 1
+  dfe <- n - 2
+  dft <- n - 1
+  msr <- ssr / dfr
+  mse <- sse / dfe
+
+  # R-squared
+  rsq  <- ssr / sst
+  radj <- rsq - (dfr * (1 - rsq)) / (n - dfr - 1)
+
+  # Uji serentak (uji F)
+  alpha <- 0.05
+  fhit  <- msr / mse
+  ftab  <- qf(1 - alpha, dfr, dfe)
+  pvalf <- round(1 - pf(fhit, dfr, dfe), 4)
+
+  if (fhit > ftab) {
+    tandaf <- ">"
+    kepf   <- "Tolak H0"
+  } else {
+    tandaf <- "<"
+    kepf   <- "Gagal Tolak H0"
+  }
+
+  # Uji parsial (uji t)
+  sumb0 <- 0
+  sumb1 <- 0
+  for (i in 1:n) {
+    sumb0 <- sumb0 + x[i]^2           # sum xi^2
+    sumb1 <- sumb1 + (x[i] - xbar)^2 # sum (xi - xbar)^2
+  }
+
+  seb0  <- sqrt(mse * sumb0 / (n * sumb1)) # standard error b0
+  seb1  <- sqrt(mse / sumb1)               # standard error b1
+  thit0 <- b0 / seb0                       # t hitung b0
+  thit1 <- b1 / seb1                       # t hitung b1
+  ttab  <- qt(1 - alpha / 2, dfe)          # t tabel
+
+  pval0 <- if (thit0 < 0) 2 * pt(thit0, dfe) else 2 * (1 - pt(thit0, dfe))
+  pval1 <- if (thit1 < 0) 2 * pt(thit1, dfe) else 2 * (1 - pt(thit1, dfe))
+
+  kept0 <- if (pval0 <= alpha) "Tolak H0" else "Gagal Tolak H0"
+  kept1 <- if (pval1 <= alpha) "Tolak H0" else "Gagal Tolak H0"
+
+  # Confidence interval
+  ci0 <- ttab * seb0
+  ci1 <- ttab * seb1
+
+  # Output
+  cat("Dari pengujian regresi linear sederhana, diperoleh output berikut:\n")
+  cat("Model : Y_hat =", round(b0, 4), "+", round(b1, 4), "* X\n\n")
+
+  print(data.frame(
+    Variabel = c("R-squared", "R-squared Adjusted", "Observations"),
+    Nilai    = c(round(rsq, 4), round(radj, 4), n)
+  ), row.names = FALSE)
+
+  cat("\nUji Serentak | H0 : b1 = 0\n")
+  print(data.frame(
+    Source   = c("Regression", "Residual", "Total"),
+    df       = c(dfr, dfe, dft),
+    SS       = round(c(ssr, sse, sst), 4),
+    MS       = round(c(msr, mse, NA), 4),
+    F_hitung = round(c(fhit, NA, NA), 4),
+    F_tabel  = round(c(ftab, NA, NA), 4),
+    p_value  = c(pvalf, NA, NA)
+  ), row.names = FALSE)
+  cat("Kesimpulan : F hitung", tandaf, "F tabel ->", kepf, "\n")
+
+  cat("\nUji Parsial | H0 : bi = 0\n")
+  print(data.frame(
+    Variabel    = c("Intercept (b0)", "X (b1)"),
+    Coefficient = round(c(b0, b1), 4),
+    Std_Error   = round(c(seb0, seb1), 4),
+    T_hitung    = round(c(thit0, thit1), 4),
+    T_tabel     = round(c(ttab, ttab), 4),
+    p_value     = round(c(pval0, pval1), 4),
+    Keputusan   = c(kept0, kept1)
+  ), row.names = FALSE)
+
+  cat("\nConfidence Interval (95%):\n")
+  cat("b0 : (", round(b0 - ci0, 4), ",", round(b0 + ci0, 4), ")\n")
+  cat("b1 : (", round(b1 - ci1, 4), ",", round(b1 + ci1, 4), ")\n")
+}
+
+# Cara pakai
+x <- c(5, 2, 12, 9, 15, 6, 25, 16)
+y <- c(64, 87, 50, 71, 44, 56, 42, 60)
+rls(y, x)
+```
+
+Regresi Linear Berganda
+```{r setup, include=FALSE}
+regan <- function(y, x) {
+
+  # Persiapan matriks
+  Y <- as.matrix(y)
+  X <- as.matrix(cbind(1, x))  # tambah kolom 1 untuk intercept
+  n <- dim(X)[1]               # jumlah observasi
+  k <- dim(X)[2]               # jumlah kolom (termasuk intercept)
+
+  # Estimasi parameter: b = (X'X)^-1 X'Y
+  xtx <- solve(t(X) %*% X)  # invers dari (X'X)
+  xty <- t(X) %*% Y          # X'Y
+  b   <- xtx %*% xty          # vektor koefisien
+
+  # Prediksi dan rata-rata Y
+  ytopi <- X %*% b            # nilai prediksi Y
+  ybar  <- sum(y) / n         # rata-rata Y (manual)
+
+  # Sum of squares menggunakan formula matriks
+  ssr <- as.numeric(t(b) %*% xty - n * ybar^2)  # SSR = b'(X'Y) - n*ybar^2
+  sse <- as.numeric(t(Y) %*% Y - t(b) %*% xty)  # SSE = Y'Y - b'(X'Y)
+  sst <- ssr + sse                                # SST = SSR + SSE
+
+  # Degrees of freedom dan mean squares
+  dfr <- k - 1      # df regresi: jumlah prediktor (tanpa intercept)
+  dfe <- n - k      # df error: n dikurangi jumlah parameter
+  dft <- dfr + dfe  # df total
+  msr <- ssr / dfr  # mean square regression
+  mse <- sse / dfe  # mean square error
+
+  # Koefisien determinasi
+  rsq  <- ssr / sst
+  radj <- rsq - (dfr * (1 - rsq)) / (n - dfr - 1)
+
+  # Uji serentak (uji F)
+  alpha <- 0.05
+  fhit  <- msr / mse                        # F hitung
+  ftab  <- qf(1 - alpha, dfr, dfe)          # F tabel
+  pvalf <- round(1 - pf(fhit, dfr, dfe), 4) # p-value
+
+  if (fhit > ftab) {
+    tandaf <- ">"
+    kepf   <- "Tolak H0"
+  } else {
+    tandaf <- "<"
+    kepf   <- "Gagal Tolak H0"
+  }
+
+  # Uji parsial (uji t)
+  sb   <- sqrt(mse) * sqrt(diag(xtx))  # standard error tiap koefisien
+  thit <- as.vector(b) / sb             # t hitung tiap koefisien
+  ttab <- qt(1 - alpha / 2, dfe)        # t tabel (dua arah)
+
+  pval_t   <- numeric(k)
+  kept     <- character(k)
+  ci_lower <- numeric(k)  # batas bawah CI
+  ci_upper <- numeric(k)  # batas atas CI
+
+  for (i in 1:k) {
+    pval_t[i]   <- if (thit[i] < 0) 2 * pt(thit[i], dfe) else 2 * (1 - pt(thit[i], dfe))
+    kept[i]     <- if (pval_t[i] <= alpha) "Tolak H0" else "Gagal Tolak H0"
+    ci_lower[i] <- as.vector(b)[i] - ttab * sb[i]  # batas bawah
+    ci_upper[i] <- as.vector(b)[i] + ttab * sb[i]  # batas atas
+  }
+
+  # Nama variabel otomatis
+  var_names <- c("Intercept", paste0("X", 1:(k - 1)))
+
+  # Output
+  cat("Dari pengujian regresi linear berganda, diperoleh output berikut:\n\n")
+
+  print(data.frame(
+    Variabel = c("R-squared", "R-squared Adjusted", "Observations"),
+    Nilai    = c(round(rsq, 4), round(radj, 4), n)
+  ), row.names = FALSE)
+
+  cat("\nUji Serentak | H0 : b1 = b2 = ... = bk = 0\n")
+  print(data.frame(
+    Source   = c("Regression", "Residual", "Total"),
+    df       = c(dfr, dfe, dft),
+    SS       = round(c(ssr, sse, sst), 4),
+    MS       = round(c(msr, mse, NA), 4),
+    F_hitung = round(c(fhit, NA, NA), 4),
+    F_tabel  = round(c(ftab, NA, NA), 4),
+    p_value  = c(pvalf, NA, NA)
+  ), row.names = FALSE)
+  cat("Kesimpulan : F hitung", tandaf, "F tabel ->", kepf, "\n")
+
+  cat("\nUji Parsial | H0 : bi = 0\n")
+  print(data.frame(
+    Variabel    = var_names,
+    Coefficient = round(as.vector(b), 4),
+    Std_Error   = round(sb, 4),
+    T_hitung    = round(thit, 4),
+    T_tabel     = round(rep(ttab, k), 4),
+    p_value     = round(pval_t, 4),
+    Keputusan   = kept
+  ), row.names = FALSE)
+
+  cat("\nConfidence Interval (95%):\n")
+  for (i in 1:k) {
+    cat(var_names[i], ": (", round(ci_lower[i], 4), ",", round(ci_upper[i], 4), ")\n")
+  }
+}
+
+# Cara pakai
+x1 <- c(1, 3, 5, 7, 9, 2, 4, 6, 8, 10)
+x2 <- c(80, 75, 70, 65, 60, 85, 78, 72, 68, 55)
+y  <- c(30, 35, 40, 45, 50, 32, 38, 43, 48, 55)
+regan(y, cbind(x1, x2))
+```
+
+
+```{r setup, include=FALSE}
+
+```
+
+Model Eksponensial
+```{r setup, include=FALSE}
+# --- MODEL EKSPONENSIAL ---
+x <- c(1, 2, 3, 4, 5)
+y <- c(2.7, 7.4, 20.1, 54.6, 148.4)   # Data yang diduga eksponensial
+
+n <- length(x)
+
+# --- LINEARISASI: Y* = ln(Y) ---
+y_star <- log(y)               # ln(Y), transformasi logaritma natural
+
+# --- HITUNG PARAMETER PADA MODEL TERLINEARKAN ---
+sum_x    <- sum(x)
+sum_ys   <- sum(y_star)
+sum_xys  <- sum(x * y_star)
+sum_x2   <- sum(x^2)
+
+x_bar  <- sum_x / n
+ys_bar <- sum_ys / n
+
+Sxy_star <- sum_xys - n * x_bar * ys_bar
+Sxx      <- sum_x2  - n * x_bar^2
+
+# Koefisien model linearkan
+b1_star <- Sxy_star / Sxx              # = beta_1 asli
+b0_star <- ys_bar - b1_star * x_bar   # = ln(beta_0)
+
+# Konversi balik intercept
+beta0 <- exp(b0_star)                  # beta_0 asli
+
+cat("Parameter Model Eksponensial:\n")
+cat("beta_0 =", beta0, "\n")
+cat("beta_1 =", b1_star, "\n")
+cat("Model: Y = ", round(beta0, 3), "* exp(", round(b1_star, 3), "* X)\n")
+
+# --- PREDIKSI (dalam skala asli) ---
+y_hat_star <- b0_star + b1_star * x    # Prediksi pada skala ln
+y_hat      <- exp(y_hat_star)          # Konversi balik ke skala asli
+
+# --- EVALUASI MODEL ---
+SSE_star <- sum((y_star - y_hat_star)^2)  # SSE pada skala terlinearkan
+SST_star <- sum((y_star - ys_bar)^2)
+R2_star  <- 1 - SSE_star / SST_star
+
+cat("R^2 (skala ln) =", R2_star, "\n")
+```
+
+Model Polinomial
+```{r setup, include=FALSE}
+# --- MODEL POLINOMIAL ORDE-2 ---
+x  <- c(1, 2, 3, 4, 5, 6, 7)
+y  <- c(2, 5, 9, 11, 10, 7, 3)    # Pola kurva terbalik (kuadratik)
+n  <- length(x)
+
+# --- BUAT VARIABEL X^2 ---
+x2 <- x^2                           # Prediktor baru: X kuadrat
+
+# --- SUSUN MATRIKS DESAIN ---
+ones <- rep(1, n)
+X    <- matrix(c(ones, x, x2), nrow = n)   # Matriks n x 3
+
+cat("Matriks Desain X:\n")
+print(X)
+
+# --- ESTIMASI PARAMETER OLS ---
+Y_vec    <- matrix(y, nrow = n)
+XtX      <- t(X) %*% X
+XtY      <- t(X) %*% Y_vec
+XtX_inv  <- solve(XtX)
+beta_hat <- XtX_inv %*% XtY
+
+b0 <- beta_hat[1]
+b1 <- beta_hat[2]
+b2 <- beta_hat[3]
+
+cat("\nParameter model kuadratik:\n")
+cat("b0 =", b0, "\n")
+cat("b1 =", b1, "\n")
+cat("b2 =", b2, "\n")
+cat("Model: Y =", round(b0,3), "+", round(b1,3), "X +", round(b2,3), "X^2\n")
+
+# --- PREDIKSI DAN EVALUASI ---
+Y_hat    <- X %*% beta_hat
+residual <- Y_vec - Y_hat
+
+y_bar <- sum(y) / n
+SST   <- sum((y - y_bar)^2)
+SSE   <- sum(residual^2)
+SSR   <- SST - SSE
+
+dfr <- 2         # Orde polinomial
+dfe <- n - dfr - 1
+
+MSR <- SSR / dfr
+MSE <- SSE / dfe
+R2  <- SSR / SST
+
+cat("\nSST =", SST, "| SSR =", as.numeric(SSR), "| SSE =", as.numeric(SSE))
+cat("\nR^2 =", as.numeric(R2), "\n")
+
+# --- UJI F ---
+alpha   <- 0.05
+F_hit   <- as.numeric(MSR / MSE)
+F_tab   <- qf(1 - alpha, dfr, dfe)
+cat("F hitung =", F_hit, "| F tabel =", F_tab, "\n")
+cat(ifelse(F_hit > F_tab, "Model signifikan\n", "Model tidak signifikan\n"))
+
+# --- VERTEX (titik puncak/minimum kurva) ---
+x_vertex <- -b1 / (2 * b2)
+y_vertex <- b0 + b1*x_vertex + b2*x_vertex^2
+cat("Titik puncak kurva: X =", x_vertex, ", Y =", y_vertex, "\n")
+```
+
+Model Logaritmik
+```{r setup, include=FALSE}
+# --- MODEL LOGARITMIK ---
+x <- c(1, 2, 4, 8, 16, 32)
+y <- c(0, 3.5, 7.0, 10.5, 14.0, 17.5)   # Pola melambat seiring X naik
+
+n <- length(x)
+
+# --- TRANSFORMASI: X* = ln(X) ---
+x_star <- log(x)              # Prediktor baru: ln(X)
+
+# --- HITUNG PARAMETER (OLS pada X* dan Y) ---
+sum_xs  <- sum(x_star)
+sum_y   <- sum(y)
+sum_xsy <- sum(x_star * y)
+sum_xs2 <- sum(x_star^2)
+
+xs_bar <- sum_xs / n
+y_bar  <- sum_y  / n
+
+Sxy_log <- sum_xsy - n * xs_bar * y_bar
+Sxx_log <- sum_xs2  - n * xs_bar^2
+
+b1_log <- Sxy_log / Sxx_log
+b0_log <- y_bar - b1_log * xs_bar
+
+cat("Parameter model logaritmik:\n")
+cat("b0 =", b0_log, "\n")
+cat("b1 =", b1_log, "\n")
+cat("Model: Y =", round(b0_log, 3), "+", round(b1_log, 3), "* ln(X)\n")
+
+# --- PREDIKSI DAN EVALUASI ---
+y_hat <- b0_log + b1_log * x_star
+SSE   <- sum((y - y_hat)^2)
+SST   <- sum((y - y_bar)^2)
+R2    <- 1 - SSE / SST
+
+cat("R^2 =", R2, "\n")
+```
+
+Perbandingan model
+```{r setup, include=FALSE}
+# --- BANDINGKAN SSE BEBERAPA MODEL ---
+# Misalkan kita punya SSE dari 3 model
+SSE_linear <- 45.2
+SSE_eksponen <- 12.8
+SSE_polinomial <- 9.1
+
+models <- c("Linear", "Eksponensial", "Polinomial Orde-2")
+sses   <- c(SSE_linear, SSE_eksponen, SSE_polinomial)
+
+cat("=== Perbandingan SSE Antar Model ===\n")
+for (i in 1:length(models)) {
+  cat(sprintf("%-25s SSE = %.4f\n", models[i], sses[i]))
+}
+cat("\nModel terbaik (SSE terkecil):", models[which.min(sses)], "\n")
+```
+
+
+```{r setup, include=FALSE}
+
+```
+
+
+```{r setup, include=FALSE}
+
+```
